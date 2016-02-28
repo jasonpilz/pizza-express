@@ -1,6 +1,8 @@
-const assert  = require('assert');
-const app     = require('../server');
-const request = require('request');
+const pry      = require('pryjs');
+const assert   = require('assert');
+const app      = require('../server');
+const request  = require('request');
+const fixtures = require('./fixtures');
 
 describe('Server', () => {
 
@@ -26,7 +28,6 @@ describe('Server', () => {
   });
 
   describe('GET /', () => {
-
     it('should return a 200', (done) => {
       this.request.get('/', (error, response) => {
         if (error) { done(error); }
@@ -45,8 +46,89 @@ describe('Server', () => {
         done();
       });
     });
+  });
+
+  describe('POST /pizzas', () => {
+    beforeEach( () => {
+      app.locals.pizzas = {};
+    });
+
+    it('should reveive and store data', (done) => {
+      var payload = { pizza: fixtures.validPizza };
+
+      this.request.post('/pizzas', { form: payload }, (error, response) => {
+        if (error) { done(error); }
+
+        var pizzaCount = Object.keys(app.locals.pizzas).length;
+
+        assert.equal(pizzaCount, 1, `Expected 1 pizzas, found ${pizzaCount}`);
+
+        done();
+      });
+    });
+
+    it('should not return 404', (done) => {
+      this.request.post('/pizzas', (error, response) => {
+        if (error) { done(error); }
+        assert.notEqual(response.statusCode, 404);
+        done();
+      });
+    });
+
+    it('should redirec the user to their new pizza', (done) => {
+      var payload = { pizza: fixtures.validPizza };
+
+      this.request.post('/pizzas', { form: payload }, (error, response) => {
+        if (error) { done(error); }
+        var newPizzaId = Object.keys(app.locals.pizzas)[0];
+        assert.equal(response.headers.location, '/pizzas/' + newPizzaId);
+        done();
+      });
+    });
+  });
+
+  describe('GET /pizzas/:id', () => {
+    beforeEach( () => {
+      app.locals.pizzas.testPizza = fixtures.validPizza;
+    });
+
+    it('should not return a 404', (done) => {
+      this.request.get('/pizzas/testPizza', (error, response) => {
+        if (error) { done(error); }
+        assert.notEqual(response.statusCode, 404);
+        done();
+      });
+    });
+
+    it('should return a page that has the title of a pizza', (done) => {
+      var pizza = app.locals.pizzas.testPizza;
+
+      this.request.get('/pizzas/testPizza', (error, response) => {
+        if (error) { done(error); }
+        assert(response.body.includes(pizza.name),
+               `"${response.body}" does not include "${pizza.name}".`);
+        done();
+      });
+    });
+
+    it('should display each of the toppings for the pizza', (done) => {
+      var pizza = app.locals.pizzas.testPizza;
+
+      this.request.get('/pizzas/testPizza', (error, response) => {
+        if (error) { done(error); }
+
+        pizza.toppings.forEach( (topping) => {
+          assert(response.body.includes(topping));
+        });
+        done();
+      });
+    });
 
   });
+
+
+
+
 
 });
 
